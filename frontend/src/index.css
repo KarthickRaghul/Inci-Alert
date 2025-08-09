@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Inci-Alert Design System - Emergency Response Theme
+All colors MUST be HSL format for consistent theming.
+Focused on professional crisis management aesthetics.
+*/
+
+@layer base {
+  :root {
+    /* Light theme (fallback) */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 188 80% 40%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 188 80% 40%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 188 80% 40%;
+    --radius: 0.75rem;
+
+    /* Emergency Alert Colors */
+    --emergency-critical: 0 84% 60%;
+    --emergency-warning: 45 93% 58%;
+    --emergency-info: 188 80% 40%;
+    --emergency-success: 142 71% 45%;
+
+    /* Gradients - Light Theme */
+    --gradient-primary: linear-gradient(135deg, hsl(188 80% 40%), hsl(188 80% 50%));
+    --gradient-background: linear-gradient(135deg, hsl(0 0% 96%), hsl(0 0% 98%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 98%), hsl(0 0% 100%));
+    
+    /* Shadows */
+    --shadow-glow: 0 0 20px hsl(188 80% 40% / 0.3);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.1);
+    --shadow-elevated: 0 8px 40px hsl(0 0% 0% / 0.15);
+
+    /* Animation */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    /* Inci-Alert Dark Theme - Default */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 188 80% 50%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 85%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 188 80% 50%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 0 0% 15%;
+    --input: 0 0% 12%;
+    --ring: 188 80% 50%;
+
+    /* Gradients - Dark Theme */
+    --gradient-background: linear-gradient(135deg, hsl(0 0% 3%), hsl(0 0% 6%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 6%), hsl(0 0% 10%));
+    
+    /* Enhanced shadows for dark theme */
+    --shadow-glow: 0 0 30px hsl(188 80% 50% / 0.4);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 8px 40px hsl(0 0% 0% / 0.5);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Default to dark mode */
+  html {
+    @apply dark;
+  }
+}
+
+@layer components {
+  /* Emergency Alert Variants */
+  .alert-critical {
+    @apply border-l-4 border-l-[hsl(var(--emergency-critical))] bg-[hsl(var(--emergency-critical)/0.1)] text-[hsl(var(--emergency-critical))];
+  }
+
+  .alert-warning {
+    @apply border-l-4 border-l-[hsl(var(--emergency-warning))] bg-[hsl(var(--emergency-warning)/0.1)] text-[hsl(var(--emergency-warning))];
+  }
+
+  .alert-info {
+    @apply border-l-4 border-l-[hsl(var(--emergency-info))] bg-[hsl(var(--emergency-info)/0.1)] text-[hsl(var(--emergency-info))];
+  }
+
+  .alert-success {
+    @apply border-l-4 border-l-[hsl(var(--emergency-success))] bg-[hsl(var(--emergency-success)/0.1)] text-[hsl(var(--emergency-success))];
+  }
+
+  /* Glowing Cards */
+  .card-glow {
+    box-shadow: var(--shadow-card), 0 0 0 1px hsl(var(--border));
+    transition: var(--transition-smooth);
+  }
+
+  .card-glow:hover {
+    box-shadow: var(--shadow-glow), 0 0 0 1px hsl(var(--primary));
+    transform: translateY(-2px);
+  }
+
+  /* Gradient Backgrounds - Theme Adaptive */
+  .bg-gradient-background {
+    background: var(--gradient-background);
+  }
+
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+
+  /* Smooth Animations */
+  .animate-pulse-glow {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px hsl(var(--primary) / 0.6);
+    }
+  }
+
+  /* Loading Skeleton */
+  .skeleton {
+    @apply animate-pulse bg-muted;
+  }
+}

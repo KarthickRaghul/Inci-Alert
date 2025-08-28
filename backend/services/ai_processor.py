@@ -1,13 +1,23 @@
-import json
+from typing import Optional
 
-def load_scraped_data(filename):
-    with open(filename, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data
+# lightweight keywords → category
+KEYMAP = {
+    "accident": ["accident", "crash", "collision", "pile-up"],
+    "crime": ["murder", "robbery", "assault", "theft", "burglary"],
+    "fire": ["fire", "blaze", "inferno"],
+    "flood": ["flood", "inundation", "waterlogging"],
+    "storm": ["storm", "cyclone", "typhoon", "wind"],
+    "earthquake": ["earthquake", "tremor"],
+    "traffic": ["traffic", "jam", "congestion"],
+    "health": ["outbreak", "epidemic", "covid", "virus"],
+    "weather": ["rain", "heatwave", "cold wave", "hail", "snow"],
+}
 
-# Usage example:
-if __name__ == "__main__":
-    filename = "incident_data_20250809_201500.json"  # update accordingly
-    data = load_scraped_data(filename)
-    print(f"Loaded {len(data.get('news', []))} news items")
-    # Add your AI processing logic here
+def categorize(title: Optional[str], summary: Optional[str]) -> str:
+    text = f"{title or ''} {summary or ''}".lower()
+    best = None
+    for label, words in KEYMAP.items():
+        if any(w in text for w in words):
+            best = label
+            break
+    return best or "general"

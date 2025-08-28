@@ -1,76 +1,132 @@
-import requests
+from typing import List, Dict
 from bs4 import BeautifulSoup
-import json
+import requests
+from datetime import datetime, timezone
+import dateparser
+from config import Config
 
-TAMIL_INCIDENT_KEYWORDS = [
-    "தீ", "அம்பலம்", "கொலை", "கள்ளத்திருட்டு", "விபத்து",
-    "ஓட்டுனர்", "பிடிப்பு", "கொலைகள்", "மோசடி", "தாக்குதல்",
-    "தடுப்பு", "அவசர", "குற்றம்", "மின்", "கடத்தல்", "பேதகம்"
-]
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+}
 
-def fetch_tamil_oneindia():
-    url = "https://tamil.oneindia.com/news/tamilnadu/"
+def _get(url: str):
+    r = requests.get(url, headers=HEADERS, timeout=Config.REQUEST_TIMEOUT)
+    r.raise_for_status()
+    return r
+
+def _parse_date(text: str):
+    if not text:
+        return None
+    dt = dateparser.parse(text)
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+def _summary_from_article(url: str) -> str:
     try:
-        res = requests.get(url, timeout=10)
-        res.raise_for_status()
-    except requests.RequestException:
-        return []
-    soup = BeautifulSoup(res.text, "html.parser")
-    articles = []
-    news_items = soup.select("div.news-sec div.news-list a")  # update if needed
-    for a in news_items:
-        title = a.get_text(strip=True)
-        link = a.get("href")
-        if link and not link.startswith("http"):
-            link = "https://tamil.oneindia.com" + link
-        if any(keyword in title for keyword in TAMIL_INCIDENT_KEYWORDS):
-            articles.append({"title": title, "link": link, "source": "Tamil OneIndia"})
-    return articles
+        res = _get(url)
+        soup = BeautifulSoup(res.content, "html.parser")
+        paras = [p.get_text(strip=True) for p in soup.find_all("p")]
+        return " ".join(paras[:3])[:1200] if paras else ""
+    except Exception:
+        return ""
 
-def fetch_dinamalar():
-    url = "https://www.dinamalar.com/latest_news.asp?cat=1"
+def scrape_toi() -> List[Dict]:
+    base = "https://timesofindia.indiatimes.com"
+    res = _get(base)
+    soup = BeautifulSoup(res.content, "html.parser")
+    items = []
+
+    # common tiles
+    for div in soup.select("div.col_l_6 a[href]"):
+        title = (div.get_text() or "").strip()
+        href = div.get("href")
+        if not title or not href:
+            continue
+        url = href if href.startswith("http") else (base + href)
+        summary = _summary_from_article(url)
+        # TOI shows date elsewhere; fallback to now
+        items.append({
+            "title": title,
+            "summary": summary,
+            "url": url,
+            "source": "news",
+            "published_at": datetime.now(timezone.utc),
+        })
+
+    # linktype2 section
+    for div in soup.select("div.linktype2 a[href]"):
+        title = (div.get_text() or "").strip()
+        href = div.get("href")
+        if not title or not href:
+            continue
+        url = href if href.startswith("http") else (base + href)
+        summary = _summary_from_article(url)
+        items.append({
+            "title": title,
+            "summary": summary,
+            "url": url,
+            "source": "news",
+            "published_at": datetime.now(timezone.utc),
+        })
+
+    return items
+
+def scrape_cnn() -> List[Dict]:
+    base = "https://edition.cnn.com"
+    items = []
+    # homepage
+    soup = BeautifulSoup(_get(base).content, "html.parser")
+    for h in soup.select("h2 a[href], h3 a[href]"):
+        title = (h.get_text() or "").strip()
+        href = h.get("href")
+        if not title or not href:
+            continue
+        url = href if href.startswith("http") else (base + href)
+        summary = _summary_from_article(url)
+        items.append({
+            "title": title,
+            "summary": summary,
+            "url": url,
+            "source": "news",
+            "published_at": datetime.now(timezone.utc),
+        })
+
+    # articles listing
+    soup2 = BeautifulSoup(_get(base + "/articles").content, "html.parser")
+    for a in soup2.select("h3.cd__headline a[href]"):
+        title = (a.get_text() or "").strip()
+        href = a.get("href")
+        url = href if href.startswith("http") else (base + href)
+        summary = _summary_from_article(url)
+        items.append({
+            "title": title,
+            "summary": summary,
+            "url": url,
+            "source": "news",
+            "published_at": datetime.now(timezone.utc),
+        })
+
+    return items
+
+def scrape_all_news() -> List[Dict]:
+    # you can parallelize if needed; kept simple & robust
+    out = []
     try:
-        res = requests.get(url, timeout=10)
-        res.raise_for_status()
-    except requests.RequestException:
-        return []
-    soup = BeautifulSoup(res.text, "html.parser")
-    articles = []
-    news_items = soup.select("div.latest_news ul li a")
-    for a in news_items:
-        title = a.get_text(strip=True)
-        link = a.get("href")
-        if link and not link.startswith("http"):
-            link = "https://www.dinamalar.com" + link
-        if any(keyword in title for keyword in TAMIL_INCIDENT_KEYWORDS):
-            articles.append({"title": title, "link": link, "source": "Dinamalar"})
-    return articles
-
-def fetch_dt_next():
-    url = "https://www.dtnext.in/News/TamilNadu"
+        out.extend(scrape_toi())
+    except Exception:
+        pass
     try:
-        res = requests.get(url, timeout=10)
-        res.raise_for_status()
-    except requests.RequestException:
-        return []
-    soup = BeautifulSoup(res.text, "html.parser")
-    articles = []
-    news_items = soup.select("div.media-body h3 a")
-    for a in news_items:
-        title = a.get_text(strip=True)
-        link = a.get("href")
-        if link and not link.startswith("http"):
-            link = "https://www.dtnext.in" + link
-        if any(keyword in title for keyword in TAMIL_INCIDENT_KEYWORDS):
-            articles.append({"title": title, "link": link, "source": "DT Next"})
-    return articles
-
-def fetch_news():
-    all_articles = []
-    for scraper in [fetch_tamil_oneindia, fetch_dinamalar, fetch_dt_next]:
-        try:
-            articles = scraper()
-            all_articles.extend(articles)
-        except Exception as e:
-            print(f"[NewsScraper] Error fetching from {scraper.__name__}: {e}")
-    return all_articles
+        out.extend(scrape_cnn())
+    except Exception:
+        pass
+    # dedupe by URL
+    seen = set()
+    uniq = []
+    for it in out:
+        if it["url"] in seen:
+            continue
+        seen.add(it["url"])
+        uniq.append(it)
+    return uniq

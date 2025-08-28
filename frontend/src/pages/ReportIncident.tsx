@@ -325,8 +325,7 @@ const ReportIncident = () => {
               Need immediate assistance? Contact emergency services directly:
             </p>
             <div className="flex justify-center space-x-6 mt-2 text-sm font-medium">
-              <span>Emergency: 911</span>
-              <span>Non-Emergency: 311</span>
+              <span>Emergency: 101</span>
             </div>
           </CardContent>
         </Card>

@@ -11,3 +11,16 @@ class Config:
     )
     REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
     OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+    
+    # File upload settings
+    UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", "10485760"))  # 10MB
+    ALLOWED_EXTENSIONS = {
+        'image': {'png', 'jpg', 'jpeg', 'gif', 'webp'},
+        'video': {'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'},
+        'document': {'pdf', 'doc', 'docx', 'txt'}
+    }
+    
+    # JWT Settings
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-secret-string")
+    JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", "86400"))  # 24 hours

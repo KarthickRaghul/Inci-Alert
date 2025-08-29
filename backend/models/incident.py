@@ -34,4 +34,4 @@ class Incident(Base):
     )
 
     # relationship
-    media = relationship("Media", back_populates="incident")
+    media = relationship("Media", back_populates="incident", cascade="all, delete-orphan")

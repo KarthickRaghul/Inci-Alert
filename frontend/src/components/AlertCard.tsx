@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, MapPin, AlertTriangle, Info, CheckCircle, Zap } from 'lucide-react';
+import { Clock, MapPin, AlertTriangle, Info, CheckCircle, Zap, Image, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface Alert {
@@ -11,6 +11,13 @@ export interface Alert {
   timestamp: string;
   description?: string;
   status?: 'active' | 'investigating' | 'resolved';
+  media?: {
+    id: number;
+    media_type: string;
+    thumbnail_url?: string;
+    file_url: string;
+    mime_type: string;
+  }[];
 }
 
 interface AlertCardProps {
@@ -104,6 +111,38 @@ const AlertCard = ({ alert, isNew = false }: AlertCardProps) => {
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {alert.description}
                 </p>
+              )}
+              
+              {/* Media Thumbnails */}
+              {alert.media && alert.media.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    {alert.media.slice(0, 3).map((media) => (
+                      <div key={media.id} className="relative w-12 h-12 rounded border overflow-hidden bg-muted">
+                        {media.thumbnail_url ? (
+                          <img 
+                            src={`http://localhost:5000${media.thumbnail_url}`}
+                            alt="Media thumbnail"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            {media.mime_type.startsWith('image/') ? (
+                              <Image className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Video className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {alert.media.length > 3 && (
+                    <span className="text-xs text-muted-foreground">
+                      +{alert.media.length - 3} more
+                    </span>
+                  )}
+                </div>
               )}
               
               <div className="flex items-center space-x-4 text-xs text-muted-foreground">

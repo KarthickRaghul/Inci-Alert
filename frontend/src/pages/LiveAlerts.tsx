@@ -1,67 +1,74 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AlertCard, { Alert } from '@/components/AlertCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiClient, Incident } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
-// Mock alerts data
-const mockAlerts: Alert[] = [
-  {
-    id: '1',
-    title: 'Building Fire Emergency',
-    type: 'critical',
-    location: 'Downtown Business District',
-    timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
-    description: 'Multiple units responding to commercial building fire with potential occupants trapped.',
-    status: 'active'
-  },
-  {
-    id: '2',
-    title: 'Multi-Vehicle Accident',
-    type: 'warning',
-    location: 'Highway 101 & Oak Street',
-    timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-    description: 'Three-car collision blocking two lanes, emergency services en route.',
-    status: 'investigating'
-  },
-  {
-    id: '3',
-    title: 'Power Grid Maintenance',
-    type: 'info',
-    location: 'Residential Area - Sector 7',
-    timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-    description: 'Scheduled maintenance affecting 1,200 homes. Expected duration: 3 hours.',
-    status: 'active'
-  },
-  {
-    id: '4',
-    title: 'Medical Emergency Resolved',
-    type: 'success',
-    location: 'City Park East Entrance',
-    timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-    description: 'Patient successfully transported to hospital. Scene cleared.',
-    status: 'resolved'
-  },
-  {
-    id: '5',
-    title: 'Gas Leak Reported',
-    type: 'critical',
-    location: 'Main Street Shopping Center',
-    timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
-    description: 'Evacuation in progress. Gas company and fire department on scene.',
-    status: 'active'
-  },
-];
+// Convert Incident to Alert format
+const incidentToAlert = (incident: Incident): Alert => {
+  // Map incident categories to alert types
+  const getAlertType = (category: string, status: string): Alert['type'] => {
+    if (status === 'resolved' || status === 'closed') return 'success';
+    
+    const criticalCategories = ['fire', 'medical', 'crime', 'hazmat'];
+    const warningCategories = ['accident', 'natural_disaster', 'security'];
+    
+    if (criticalCategories.includes(category.toLowerCase())) return 'critical';
+    if (warningCategories.includes(category.toLowerCase())) return 'warning';
+    return 'info';
+  };
+
+  return {
+    id: incident.id.toString(),
+    title: incident.title,
+    type: getAlertType(incident.category, incident.status),
+    location: incident.location,
+    timestamp: incident.created_at,
+    description: incident.description,
+    status: incident.status === 'reported' ? 'active' : 
+            incident.status === 'confirmed' ? 'investigating' : 'resolved',
+    media: incident.media && incident.media.length > 0 ? incident.media : undefined,
+  };
+};
 
 const LiveAlerts = () => {
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
-  const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>(mockAlerts);
+  const { toast } = useToast();
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [filteredAlerts, setFilteredAlerts] = useState<Alert[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newAlertIds, setNewAlertIds] = useState<Set<string>>(new Set());
+
+  // Fetch incidents from API
+  const fetchIncidents = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      const incidents = await apiClient.getIncidents({ limit: 50 });
+      const convertedAlerts = incidents.map(incidentToAlert);
+      setAlerts(convertedAlerts);
+    } catch (error) {
+      console.error('Error fetching incidents:', error);
+      toast({
+        title: "Error Loading Alerts",
+        description: error instanceof Error ? error.message : "Failed to load alerts",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  // Initial load
+  useEffect(() => {
+    fetchIncidents();
+  }, [fetchIncidents]);
 
   const alertTypes = [
     { value: 'all', label: 'All Alerts', count: alerts.length },
@@ -71,37 +78,11 @@ const LiveAlerts = () => {
     { value: 'success', label: 'Resolved', count: alerts.filter(a => a.type === 'success').length },
   ];
 
-  // Simulate real-time updates
+  // Simulate real-time updates - fetch new data every 30 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Randomly add new alerts (10% chance every 5 seconds)
-      if (Math.random() < 0.1) {
-        const newAlert: Alert = {
-          id: Date.now().toString(),
-          title: 'New Incident Reported',
-          type: ['critical', 'warning', 'info'][Math.floor(Math.random() * 3)] as Alert['type'],
-          location: 'Various Locations',
-          timestamp: new Date().toISOString(),
-          description: 'Automatically generated incident for demonstration.',
-          status: 'active'
-        };
-        
-        setAlerts(prev => [newAlert, ...prev]);
-        setNewAlertIds(prev => new Set([...prev, newAlert.id]));
-        
-        // Remove the "new" indicator after 3 seconds
-        setTimeout(() => {
-          setNewAlertIds(prev => {
-            const updated = new Set(prev);
-            updated.delete(newAlert.id);
-            return updated;
-          });
-        }, 3000);
-      }
-    }, 5000);
-
+    const interval = setInterval(fetchIncidents, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchIncidents]);
 
   // Filter alerts based on search and type
   useEffect(() => {
@@ -122,11 +103,8 @@ const LiveAlerts = () => {
     setFilteredAlerts(filtered);
   }, [alerts, searchTerm, selectedType]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsRefreshing(false);
+  const handleRefresh = () => {
+    fetchIncidents();
   };
 
   return (
@@ -212,10 +190,15 @@ const LiveAlerts = () => {
 
         {/* Alerts List */}
         <div className="space-y-4">
-          {filteredAlerts.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <div className="text-muted-foreground">Loading alerts...</div>
+            </div>
+          ) : filteredAlerts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground">
-                No alerts match your current filters
+                {alerts.length === 0 ? 'No alerts available' : 'No alerts match your current filters'}
               </div>
             </div>
           ) : (

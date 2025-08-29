@@ -77,7 +77,7 @@ const Home = () => {
           </div>
           
           <div className="h-[600px] rounded-lg overflow-hidden card-glow bg-card">
-            <Map showTokenInput={true} />
+            <Map />
           </div>
         </div>
 

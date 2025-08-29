@@ -1,13 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { AlertTriangle, MapPin, Zap } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { MAP_CONFIG, MAP_FOG_CONFIG, MARKER_STYLES, type IncidentType } from '@/constants/mapConfig';
 
 // Mock incidents data
-const mockIncidents = [
+const mockIncidents: Array<{
+  id: number;
+  lat: number;
+  lng: number;
+  type: IncidentType;
+  title: string;
+  location: string;
+}> = [
   { id: 1, lat: 40.7128, lng: -74.0060, type: 'critical', title: 'Fire Emergency', location: 'Manhattan, NY' },
   { id: 2, lat: 34.0522, lng: -118.2437, type: 'warning', title: 'Traffic Accident', location: 'Los Angeles, CA' },
   { id: 3, lat: 41.8781, lng: -87.6298, type: 'info', title: 'Power Outage', location: 'Chicago, IL' },
@@ -15,32 +21,30 @@ const mockIncidents = [
   { id: 5, lat: 25.7617, lng: -80.1918, type: 'critical', title: 'Flood Warning', location: 'Miami, FL' },
 ];
 
-interface MapProps {
-  showTokenInput?: boolean;
-}
-
-const Map: React.FC<MapProps> = ({ showTokenInput = false }) => {
+const Map: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [isTokenSet, setIsTokenSet] = useState(false);
 
   useEffect(() => {
-    if (!mapContainer.current || (!isTokenSet && showTokenInput)) return;
+    if (!mapContainer.current) return;
 
-    // For demo purposes, we'll use a placeholder token
-    // In production, this should come from environment variables or Supabase secrets
-    const token = mapboxToken || 'pk.YOUR_MAPBOX_TOKEN_HERE';
+    // Use the token from map config constants
+    const token = MAP_CONFIG.TOKEN;
+    
+    if (!token) {
+      console.warn('Mapbox token not found in environment variables');
+      return;
+    }
     
     try {
       mapboxgl.accessToken = token;
       
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-98.5795, 39.8283], // Center of USA
-        zoom: 3.5,
-        projection: 'globe' as any,
+        style: MAP_CONFIG.STYLE,
+        center: MAP_CONFIG.CENTER,
+        zoom: MAP_CONFIG.ZOOM,
+        projection: MAP_CONFIG.PROJECTION,
       });
 
       // Add navigation controls
@@ -55,26 +59,17 @@ const Map: React.FC<MapProps> = ({ showTokenInput = false }) => {
       map.current.on('style.load', () => {
         if (!map.current) return;
         
-        map.current.setFog({
-          color: 'rgb(0, 0, 0)',
-          'high-color': 'rgb(20, 20, 30)',
-          'horizon-blend': 0.2,
-          'space-color': 'rgb(0, 0, 0)',
-          'star-intensity': 0.6,
-        });
+        map.current.setFog(MAP_FOG_CONFIG);
       });
 
       // Add incident markers
       mockIncidents.forEach((incident) => {
         const markerElement = document.createElement('div');
         markerElement.className = 'marker';
+        const styles = MARKER_STYLES[incident.type];
+        
         markerElement.innerHTML = `
-          <div class="w-8 h-8 rounded-full flex items-center justify-center animate-pulse-glow border-2 ${
-            incident.type === 'critical' ? 'bg-emergency-critical border-emergency-critical' :
-            incident.type === 'warning' ? 'bg-emergency-warning border-emergency-warning' :
-            incident.type === 'info' ? 'bg-emergency-info border-emergency-info' :
-            'bg-emergency-success border-emergency-success'
-          }">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center animate-pulse-glow border-2 ${styles.bg} ${styles.border}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               ${incident.type === 'critical' ? '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="m12 17 .01 0"/>' : 
                 incident.type === 'info' ? '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>' :
@@ -90,12 +85,7 @@ const Map: React.FC<MapProps> = ({ showTokenInput = false }) => {
           <div class="p-2">
             <h3 class="font-semibold text-sm">${incident.title}</h3>
             <p class="text-xs text-muted-foreground">${incident.location}</p>
-            <span class="inline-block px-2 py-1 text-xs rounded mt-1 ${
-              incident.type === 'critical' ? 'bg-emergency-critical/20 text-emergency-critical' :
-              incident.type === 'warning' ? 'bg-emergency-warning/20 text-emergency-warning' :
-              incident.type === 'info' ? 'bg-emergency-info/20 text-emergency-info' :
-              'bg-emergency-success/20 text-emergency-success'
-            }">${incident.type.toUpperCase()}</span>
+            <span class="inline-block px-2 py-1 text-xs rounded mt-1 ${styles.popup}">${incident.type.toUpperCase()}</span>
           </div>
         `);
 
@@ -112,35 +102,17 @@ const Map: React.FC<MapProps> = ({ showTokenInput = false }) => {
     return () => {
       map.current?.remove();
     };
-  }, [isTokenSet, mapboxToken, showTokenInput]);
+  }, []);
 
-  const handleTokenSubmit = () => {
-    if (mapboxToken.trim()) {
-      setIsTokenSet(true);
-    }
-  };
-
-  if (showTokenInput && !isTokenSet) {
+  if (!MAP_CONFIG.TOKEN) {
     return (
       <Card className="p-8 text-center card-glow">
         <MapPin className="h-12 w-12 mx-auto mb-4 text-primary" />
-        <h3 className="text-lg font-semibold mb-2">Mapbox Token Required</h3>
+        <h3 className="text-lg font-semibold mb-2">Mapbox Token Missing</h3>
         <p className="text-muted-foreground mb-6">
-          Please enter your Mapbox public token to display the interactive map.
+          Please set VITE_MAPBOX_TOKEN in your environment variables.
         </p>
-        <div className="flex gap-2 max-w-md mx-auto">
-          <Input
-            type="password"
-            placeholder="pk.your_mapbox_token_here"
-            value={mapboxToken}
-            onChange={(e) => setMapboxToken(e.target.value)}
-            className="flex-1"
-          />
-          <Button onClick={handleTokenSubmit} disabled={!mapboxToken.trim()}>
-            Load Map
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-4">
+        <p className="text-xs text-muted-foreground">
           Get your token at{' '}
           <a 
             href="https://mapbox.com/" 

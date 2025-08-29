@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, text, UniqueConstraint
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from utils.db import Base
 
 class Incident(Base):
@@ -31,3 +32,6 @@ class Incident(Base):
         # avoid duplicate news by URL (NULL allowed for weather)
         UniqueConstraint('url', name='uq_incidents_url'),
     )
+
+    # relationship
+    media = relationship("Media", back_populates="incident")

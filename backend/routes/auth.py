@@ -7,6 +7,8 @@ from models.user import User
 from utils.validation import UserRegistrationSchema, UserLoginSchema, validate_request_data
 from datetime import datetime, timedelta
 import traceback
+import secrets
+import hashlib
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -211,3 +213,105 @@ def update_profile():
 def check_if_token_revoked(jwt_header, jwt_payload):
     jti = jwt_payload['jti']
     return jti in blacklisted_tokens
+
+@bp.post("/forgot-password")
+def forgot_password():
+    """Request password reset."""
+    session = SessionLocal()
+    
+    try:
+        data = request.get_json() or {}
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({"error": "Email is required"}), 400
+        
+        user = session.query(User).filter(User.email == email).first()
+        
+        # Always return success to avoid email enumeration
+        # but only send email if user exists
+        if user:
+            # Generate reset token
+            reset_token = secrets.token_urlsafe(32)
+            token_hash = hashlib.sha256(reset_token.encode()).hexdigest()
+            
+            # For now, store in memory since we can't modify DB schema
+            # In production, this would be stored in database
+            temp_reset_tokens = getattr(current_app, '_temp_reset_tokens', {})
+            temp_reset_tokens[token_hash] = {
+                'user_id': user.id,
+                'expires': datetime.utcnow() + timedelta(hours=24)
+            }
+            current_app._temp_reset_tokens = temp_reset_tokens
+            
+            # In a real app, send email here
+            current_app.logger.info(f"Password reset requested for {email}")
+            current_app.logger.info(f"Reset token (for testing): {reset_token}")
+        
+        return jsonify({
+            "message": "If an account with this email exists, you will receive reset instructions."
+        })
+        
+    except SQLAlchemyError as e:
+        session.rollback()
+        current_app.logger.error(f"Database error in forgot_password: {str(e)}")
+        return jsonify({"error": "Database error"}), 500
+    except Exception as e:
+        session.rollback()
+        current_app.logger.error(f"Unexpected error in forgot_password: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        session.close()
+
+@bp.post("/reset-password")
+def reset_password():
+    """Reset password with token."""
+    session = SessionLocal()
+    
+    try:
+        data = request.get_json() or {}
+        token = data.get('token')
+        new_password = data.get('new_password')
+        
+        if not token or not new_password:
+            return jsonify({"error": "Token and new password are required"}), 400
+        
+        if len(new_password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters long"}), 400
+        
+        # Hash the token to compare with stored hash
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        
+        # Check temporary storage for reset token
+        temp_reset_tokens = getattr(current_app, '_temp_reset_tokens', {})
+        token_data = temp_reset_tokens.get(token_hash)
+        
+        if not token_data or token_data['expires'] < datetime.utcnow():
+            return jsonify({"error": "Invalid or expired reset token"}), 400
+        
+        # Find user
+        user = session.get(User, token_data['user_id'])
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Update password and clear reset token
+        user.set_password(new_password)
+        session.commit()
+        
+        # Remove token from temporary storage
+        del temp_reset_tokens[token_hash]
+        
+        current_app.logger.info(f"Password reset successful for user: {user.username}")
+        
+        return jsonify({"message": "Password reset successfully"})
+        
+    except SQLAlchemyError as e:
+        session.rollback()
+        current_app.logger.error(f"Database error in reset_password: {str(e)}")
+        return jsonify({"error": "Database error"}), 500
+    except Exception as e:
+        session.rollback()
+        current_app.logger.error(f"Unexpected error in reset_password: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        session.close()

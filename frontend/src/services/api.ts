@@ -278,6 +278,26 @@ class ApiClient {
     }
   }
 
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseURL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify({ email }),
+    });
+
+    return this.handleResponse<{ message: string }>(response);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseURL}/auth/reset-password`, {
+      method: 'POST',
+      headers: this.getHeaders(false),
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+
+    return this.handleResponse<{ message: string }>(response);
+  }
+
   async getProfile(): Promise<{ user: User }> {
     const response = await fetch(`${this.baseURL}/auth/profile`, {
       headers: this.getHeaders(),
@@ -303,7 +323,7 @@ class ApiClient {
   // Statistics APIs
   async getOverviewStats(): Promise<OverviewStats> {
     const response = await fetch(`${this.baseURL}/stats/overview`, {
-      headers: this.getHeaders(false),
+      headers: this.getHeaders(false, false),
     });
 
     return this.handleResponse<OverviewStats>(response);
@@ -314,7 +334,7 @@ class ApiClient {
     if (days) params.append('days', days.toString());
 
     const response = await fetch(`${this.baseURL}/stats/category?${params}`, {
-      headers: this.getHeaders(false),
+      headers: this.getHeaders(false, false),
     });
 
     return this.handleResponse<CategoryStats>(response);
@@ -322,7 +342,7 @@ class ApiClient {
 
   async getLocationStats(): Promise<LocationStats> {
     const response = await fetch(`${this.baseURL}/stats/location`, {
-      headers: this.getHeaders(false),
+      headers: this.getHeaders(false, false),
     });
 
     return this.handleResponse<LocationStats>(response);
@@ -333,7 +353,7 @@ class ApiClient {
     if (category) params.append('category', category);
 
     const response = await fetch(`${this.baseURL}/stats/timeline?${params}`, {
-      headers: this.getHeaders(false),
+      headers: this.getHeaders(false, false),
     });
 
     return this.handleResponse<TimelineStats>(response);

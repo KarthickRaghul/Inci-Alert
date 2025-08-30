@@ -9,7 +9,13 @@ import Home from "./pages/Home";
 import LiveAlerts from "./pages/LiveAlerts";
 import ReportIncident from "./pages/ReportIncident";
 import Statistics from "./pages/Statistics";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +33,15 @@ const App = () => (
               <Route path="/alerts" element={<LiveAlerts />} />
               <Route path="/report" element={<ReportIncident />} />
               <Route path="/stats" element={<Statistics />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,8 +1,73 @@
+import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import Map from '@/components/Map';
 import StatCard from '@/components/StatCard';
-import { AlertTriangle, Activity, CheckCircle, Clock } from 'lucide-react';
+import { AlertTriangle, Activity, CheckCircle, Clock, Phone, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { apiClient, OverviewStats } from '@/services/api';
 
 const Home = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [stats, setStats] = useState<OverviewStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const data = await apiClient.getOverviewStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Error loading stats:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard statistics",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStats();
+  }, [toast]);
+
+  const handleReportIncident = () => {
+    navigate('/report');
+  };
+
+  const handleEmergencyServices = () => {
+    // Show emergency contacts dialog or take action
+    const emergencyNumbers = [
+      { service: 'Police', number: '911' },
+      { service: 'Fire Department', number: '911' },
+      { service: 'Medical Emergency', number: '911' },
+      { service: 'Poison Control', number: '1-800-222-1222' },
+    ];
+
+    toast({
+      title: "Emergency Services",
+      description: (
+        <div className="space-y-2">
+          <p className="font-medium">Quick Emergency Contacts:</p>
+          {emergencyNumbers.map((contact, index) => (
+            <div key={index} className="flex justify-between items-center">
+              <span>{contact.service}:</span>
+              <a 
+                href={`tel:${contact.number}`}
+                className="text-primary hover:underline font-mono"
+              >
+                {contact.number}
+              </a>
+            </div>
+          ))}
+        </div>
+      ),
+      duration: 10000, // Show for 10 seconds
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-background pt-20 px-4">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -18,38 +83,52 @@ const Home = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total Incidents"
-            value="247"
-            description="All time recorded"
-            icon={AlertTriangle}
-            trend={{ value: 12, label: "vs last month" }}
-            variant="default"
-          />
-          <StatCard
-            title="Active Incidents"
-            value="23"
-            description="Currently ongoing"
-            icon={Activity}
-            trend={{ value: -8, label: "vs yesterday" }}
-            variant="critical"
-          />
-          <StatCard
-            title="Resolved Today"
-            value="15"
-            description="Successfully handled"
-            icon={CheckCircle}
-            trend={{ value: 25, label: "vs yesterday" }}
-            variant="success"
-          />
-          <StatCard
-            title="Avg Response Time"
-            value="4.2m"
-            description="Minutes to first response"
-            icon={Clock}
-            trend={{ value: -15, label: "improvement" }}
-            variant="warning"
-          />
+          <div onClick={() => navigate('/stats')} className="cursor-pointer">
+            <StatCard
+              title="Total Incidents"
+              value={isLoading ? "..." : stats?.total_incidents.toString() || "0"}
+              description="All time recorded"
+              icon={AlertTriangle}
+              trend={stats?.weekly_trend ? {
+                value: stats.weekly_trend.length > 1 ? 
+                  ((stats.weekly_trend[stats.weekly_trend.length - 1].count - 
+                    stats.weekly_trend[stats.weekly_trend.length - 2].count) / 
+                    stats.weekly_trend[stats.weekly_trend.length - 2].count * 100) : 0,
+                label: "vs last week"
+              } : undefined}
+              variant="default"
+            />
+          </div>
+          <div onClick={() => navigate('/alerts')} className="cursor-pointer">
+            <StatCard
+              title="Recent (24h)"
+              value={isLoading ? "..." : stats?.recent_incidents_24h.toString() || "0"}
+              description="Last 24 hours"
+              icon={Activity}
+              trend={{ value: 0, label: "vs yesterday" }}
+              variant="critical"
+            />
+          </div>
+          <div onClick={() => navigate('/stats')} className="cursor-pointer">
+            <StatCard
+              title="Resolved"
+              value={isLoading ? "..." : stats?.status_breakdown?.find(s => s.status === 'resolved')?.count.toString() || "0"}
+              description="Successfully handled"
+              icon={CheckCircle}
+              trend={{ value: 0, label: "resolution rate" }}
+              variant="success"
+            />
+          </div>
+          <div onClick={() => navigate('/alerts')} className="cursor-pointer">
+            <StatCard
+              title="Open Cases"
+              value={isLoading ? "..." : (stats?.status_breakdown?.filter(s => s.status !== 'resolved' && s.status !== 'closed')?.reduce((sum, s) => sum + s.count, 0).toString() || "0")}
+              description="Currently active"
+              icon={Clock}
+              trend={{ value: 0, label: "pending review" }}
+              variant="warning"
+            />
+          </div>
         </div>
 
         {/* Map Section */}
@@ -84,23 +163,37 @@ const Home = () => {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
           <div className="card-glow bg-gradient-card p-6 rounded-lg border border-border">
-            <h3 className="text-lg font-semibold mb-2">Quick Report</h3>
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-lg font-semibold">Quick Report</h3>
+              <AlertTriangle className="h-5 w-5 text-primary" />
+            </div>
             <p className="text-muted-foreground mb-4">
               Report a new incident quickly from your current location
             </p>
-            <button className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+            <Button 
+              onClick={handleReportIncident}
+              className="w-full"
+            >
               Report Incident
-            </button>
+            </Button>
           </div>
           
           <div className="card-glow bg-gradient-card p-6 rounded-lg border border-border">
-            <h3 className="text-lg font-semibold mb-2">Emergency Contacts</h3>
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-lg font-semibold">Emergency Contacts</h3>
+              <Phone className="h-5 w-5 text-destructive" />
+            </div>
             <p className="text-muted-foreground mb-4">
               Access emergency services and support contacts
             </p>
-            <button className="w-full bg-destructive text-destructive-foreground px-4 py-2 rounded-md hover:bg-destructive/90 transition-colors">
+            <Button 
+              onClick={handleEmergencyServices}
+              variant="destructive"
+              className="w-full"
+            >
+              <Phone className="mr-2 h-4 w-4" />
               Emergency Services
-            </button>
+            </Button>
           </div>
         </div>
       </div>
